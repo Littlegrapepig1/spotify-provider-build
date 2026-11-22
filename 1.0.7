@@ -1,0 +1,503 @@
+name: Build SpotifyPlus MultiSource 1.0.7 Spotify 9.2.4 Compat APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/**'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Check Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          if [ ! -f "$SDK_ROOT/platforms/android-37.0/android.jar" ]; then
+            SDKM="$(command -v sdkmanager || true)"
+            if [ -z "$SDKM" ]; then
+              SDKM="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+            fi
+            yes | "$SDKM" --install 'platforms;android-37.0' || true
+          fi
+          test -f "$SDK_ROOT/platforms/android-37.0/android.jar"
+
+      - name: Clone SpotifyPlus base source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch v1.0.0 https://github.com/Kifranei/SpotifyPlus.git upstream
+          chmod +x upstream/gradlew
+
+      - name: Restore proven 1.0.6 MultiSource base patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYCODE'
+          from pathlib import Path
+          import base64
+          import re
+
+          old = Path('.github/workflows/main1029night.yml').read_text(
+              encoding='utf-8'
+          )
+          match = re.search(
+              r"<<'LYRIC_PATCH_B64'\s*\n(.*?)\n\s*LYRIC_PATCH_B64",
+              old,
+              re.S
+          )
+          if not match:
+              raise SystemExit(
+                  'Cannot find existing 1.0.6 patch in main1029night.yml'
+              )
+
+          data = ''.join(
+              line.strip()
+              for line in match.group(1).splitlines()
+          )
+          Path('base106.tgz').write_bytes(
+              base64.b64decode(data, validate=True)
+          )
+          PYCODE
+
+          tar -tzf base106.tgz >/dev/null
+          tar -xzf base106.tgz
+          python3 scripts/apply.py
+
+      - name: Patch Spotify 9.2.4 playback compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYCODE'
+          from pathlib import Path
+
+          hook = Path(
+              'upstream/app/src/main/java/dev/kifranei/spotifyplus/hook'
+          )
+
+          hook.joinpath('MediaTrackIdResolver.kt').write_text(
+              r'''package dev.kifranei.spotifyplus.hook
+
+          /** Strict Spotify identity decoding across Android metadata variants. */
+          internal object MediaTrackIdResolver {
+              private val id = Regex("^[0-9A-Za-z]{22}$")
+              private val uri = Regex("^spotify:track:([0-9A-Za-z]{22})(?:[?].*)?$", RegexOption.IGNORE_CASE)
+              private val url = Regex("^https?://open\\.spotify\\.com/(?:intl-[^/]+/)?track/([0-9A-Za-z]{22})(?:[/?#].*)?$", RegexOption.IGNORE_CASE)
+
+              fun parse(value: String?): String? {
+                  if (value.isNullOrBlank()) return null
+                  val v = value.trim()
+                  if (id.matches(v)) return v
+                  uri.matchEntire(v)?.let { return it.groupValues[1] }
+                  url.matchEntire(v)?.let { return it.groupValues[1] }
+                  return null
+              }
+
+              fun first(vararg candidates: String?): String? =
+                  candidates.firstNotNullOfOrNull(::parse)
+
+              fun normalized(value: String?): String = value.orEmpty()
+                  .trim()
+                  .lowercase(java.util.Locale.ROOT)
+                  .replace(Regex("\\s+"), " ")
+
+              fun metadataAgrees(old: String?, new: String?): Boolean =
+                  old != null &&
+                  new != null &&
+                  normalized(old) == normalized(new)
+          }''',
+              encoding='utf-8'
+          )
+
+          hook.joinpath('PlaybackHook.kt').write_text(
+              r'''package dev.kifranei.spotifyplus.hook
+
+          import android.content.BroadcastReceiver
+          import android.content.Context
+          import android.content.Intent
+          import android.content.IntentFilter
+          import android.media.MediaMetadata
+          import android.media.session.PlaybackState
+          import android.os.Build
+          import dev.kifranei.spotifyplus.util.SpotifyPlusLog
+          import java.util.concurrent.CopyOnWriteArrayList
+
+          /** Spotify 9.2 compatibility: multiple MediaSession IDs + verified ContextTrack + optional broadcast. */
+          object PlaybackHook {
+              data class Track(
+                  val id: String,
+                  val title: String?,
+                  val artist: String?,
+                  val durationMs: Long
+              )
+
+              interface Listener {
+                  fun onTrack(t: Track) {}
+                  fun onPlaybackState(s: PlaybackState) {}
+                  fun onOtherMetadata(title: String?, artist: String?) {}
+              }
+
+              private val listeners =
+                  CopyOnWriteArrayList<Listener>()
+
+              @Volatile
+              private var installed = false
+
+              @Volatile
+              private var broadcastRegistered = false
+
+              @Volatile
+              var lastTrack: Track? = null
+                  private set
+
+              fun add(l: Listener) {
+                  if (!listeners.contains(l)) listeners += l
+              }
+
+              private fun deliver(t: Track, via: String) {
+                  if (t.id == lastTrack?.id) return
+
+                  lastTrack = t
+                  TrackStore.currentUri = "spotify:track:${t.id}"
+
+                  SpotifyPlusLog.i(
+                      "playback-track id=${t.id} via=$via title=${t.title.orEmpty().take(72)}"
+                  )
+
+                  for (l in listeners) {
+                      runCatching { l.onTrack(t) }
+                          .onFailure {
+                              SpotifyPlusLog.w("playback listener failed", it)
+                          }
+                  }
+              }
+
+              private fun onMetadata(md: MediaMetadata) {
+                  val description =
+                      runCatching { md.description }.getOrNull()
+
+                  val title =
+                      md.getString(MediaMetadata.METADATA_KEY_TITLE)
+                          ?: md.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE)
+                          ?: description?.title?.toString()
+
+                  val artist =
+                      md.getString(MediaMetadata.METADATA_KEY_ARTIST)
+                          ?: md.getString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE)
+                          ?: description?.subtitle?.toString()
+
+                  val duration =
+                      md.getLong(MediaMetadata.METADATA_KEY_DURATION)
+
+                  val fromMetadata = MediaTrackIdResolver.first(
+                      md.getString(MediaMetadata.METADATA_KEY_MEDIA_ID),
+                      md.getString(MediaMetadata.METADATA_KEY_MEDIA_URI),
+                      description?.mediaId,
+                      description?.mediaUri?.toString()
+                  )
+
+                  val fromTrack =
+                      if (fromMetadata == null)
+                          TrackStore.findByMetadata(title, artist)
+                      else
+                          null
+
+                  val id = fromMetadata ?: fromTrack
+
+                  if (id != null) {
+                      deliver(
+                          Track(id, title, artist, duration),
+                          if (fromMetadata != null)
+                              "MediaSession"
+                          else
+                              "ContextTrack-match"
+                      )
+                      return
+                  }
+
+                  val previous = lastTrack
+
+                  if (
+                      previous != null &&
+                      MediaTrackIdResolver.metadataAgrees(
+                          previous.title, title
+                      ) &&
+                      MediaTrackIdResolver.metadataAgrees(
+                          previous.artist, artist
+                      )
+                  ) {
+                      SpotifyPlusLog.i(
+                          "playback metadata missing ID but matches last song; keep lyrics"
+                      )
+                      return
+                  }
+
+                  SpotifyPlusLog.w(
+                      "playback metadata missing Spotify ID: title=${title.orEmpty().take(64)} artist=${artist.orEmpty().take(64)}"
+                  )
+
+                  for (l in listeners) {
+                      runCatching {
+                          l.onOtherMetadata(title, artist)
+                      }.onFailure {
+                          SpotifyPlusLog.w("metadata listener failed", it)
+                      }
+                  }
+              }
+
+              @Synchronized
+              fun install() {
+                  if (installed) return
+                  installed = true
+
+                  val ms =
+                      android.media.session.MediaSession::class.java
+
+                  val metaHooks = ModernHookRuntime.hookAllMethods(
+                      ms,
+                      "setMetadata",
+                      object : ModernHookRuntime.MethodHook() {
+                          override fun afterHookedMethod(
+                              p: ModernHookRuntime.MethodHookParam
+                          ) {
+                              val md =
+                                  p.args.getOrNull(0) as? MediaMetadata
+                                      ?: return
+
+                              runCatching {
+                                  onMetadata(md)
+                              }.onFailure {
+                                  SpotifyPlusLog.w(
+                                      "metadata handler failed", it
+                                  )
+                              }
+                          }
+                      }
+                  )
+
+                  val stateHooks = ModernHookRuntime.hookAllMethods(
+                      ms,
+                      "setPlaybackState",
+                      object : ModernHookRuntime.MethodHook() {
+                          override fun afterHookedMethod(
+                              p: ModernHookRuntime.MethodHookParam
+                          ) {
+                              val state =
+                                  p.args.getOrNull(0) as? PlaybackState
+                                      ?: return
+
+                              for (l in listeners) {
+                                  runCatching {
+                                      l.onPlaybackState(state)
+                                  }
+                              }
+                          }
+                      }
+                  )
+
+                  SpotifyPlusLog.i(
+                      "PlaybackHook ready: MediaSession metadata=$metaHooks state=$stateHooks"
+                  )
+
+                  SpotifyHost.whenReady(::registerBroadcastFallback)
+              }
+
+              private fun registerBroadcastFallback(
+                  app: android.app.Application
+              ) {
+                  if (broadcastRegistered) return
+
+                  val receiver = object : BroadcastReceiver() {
+                      override fun onReceive(
+                          context: Context,
+                          intent: Intent
+                      ) {
+                          if (
+                              intent.action !=
+                              "com.spotify.music.metadatachanged"
+                          ) return
+
+                          val sent =
+                              intent.getLongExtra("timeSent", 0L)
+
+                          if (
+                              sent > 0L &&
+                              kotlin.math.abs(
+                                  System.currentTimeMillis() - sent
+                              ) > 60_000L
+                          ) return
+
+                          val id = MediaTrackIdResolver.parse(
+                              intent.getStringExtra("id")
+                          ) ?: return
+
+                          val title =
+                              intent.getStringExtra("track")
+
+                          val artist =
+                              intent.getStringExtra("artist")
+
+                          val sec =
+                              intent.getIntExtra("length", 0)
+                                  .coerceAtLeast(0)
+
+                          deliver(
+                              Track(
+                                  id,
+                                  title,
+                                  artist,
+                                  sec.toLong() * 1000L
+                              ),
+                              "Spotify-broadcast"
+                          )
+                      }
+                  }
+
+                  runCatching {
+                      val filter = IntentFilter(
+                          "com.spotify.music.metadatachanged"
+                      )
+
+                      if (Build.VERSION.SDK_INT >= 33) {
+                          app.registerReceiver(
+                              receiver,
+                              filter,
+                              Context.RECEIVER_EXPORTED
+                          )
+                      } else {
+                          app.registerReceiver(receiver, filter)
+                      }
+
+                      broadcastRegistered = true
+
+                      SpotifyPlusLog.i(
+                          "Spotify media broadcast fallback installed (may be disabled by Spotify settings)"
+                      )
+                  }.onFailure {
+                      SpotifyPlusLog.w(
+                          "broadcast fallback registration failed", it
+                      )
+                  }
+              }
+          }''',
+              encoding='utf-8'
+          )
+
+          def replace_one(path, old, new):
+              s = path.read_text(encoding='utf-8')
+              if s.count(old) != 1:
+                  raise SystemExit(
+                      f'Unexpected source in {path}: {old!r} occurs {s.count(old)} times'
+                  )
+              path.write_text(
+                  s.replace(old, new),
+                  encoding='utf-8'
+              )
+
+          store = hook / 'TrackStore.kt'
+
+          replace_one(
+              store,
+              'import dev.kifranei.spotifyplus.util.SpotifyPlusLog',
+              'import dev.kifranei.spotifyplus.util.SpotifyPlusLog\nimport dev.kifranei.spotifyplus.util.SpotifyUris'
+          )
+
+          replace_one(
+              store,
+              '    /** Now-playing track (from MediaSession), else the last track we saw a Canvas for. */',
+              '''    /** Exact title AND artist matching only. Ambiguous recordings are rejected. */
+              fun findByMetadata(title: String?, artist: String?): String? {
+                  if (title.isNullOrBlank() || artist.isNullOrBlank()) return null
+                  val wantedTitle = MediaTrackIdResolver.normalized(title)
+                  val wantedArtist = MediaTrackIdResolver.normalized(artist)
+                  return synchronized(lock) {
+                      map.values.asSequence().filter {
+                          MediaTrackIdResolver.normalized(it.title) == wantedTitle &&
+                              MediaTrackIdResolver.normalized(it.artistName) == wantedArtist
+                      }.mapNotNull { SpotifyUris.trackId(it.uri) }.distinct().toList().singleOrNull()
+                  }
+              }
+
+              /** Now-playing track (from MediaSession), else the last track we saw a Canvas for. */'''
+          )
+
+          entry = hook / 'HookEntry.kt'
+
+          replace_one(
+              entry,
+              '        step("PlaybackHook") { PlaybackHook.install() }',
+              '        if (prefs.lyricsBridge) step("TrackStore for lyrics") { TrackStore.install(cl) }\n'
+              '        step("PlaybackHook") { PlaybackHook.install() }'
+          )
+
+          gradle = Path('upstream/app/build.gradle.kts')
+
+          replace_one(
+              gradle,
+              'versionCode = 16',
+              'versionCode = 17'
+          )
+
+          replace_one(
+              gradle,
+              'versionName = "1.0.6-persistent-cache-beta"',
+              'versionName = "1.0.7-spotify-9.2-compat-beta"'
+          )
+
+          print(
+              'Spotify 9.2.4 compatibility applied; cache and source picker preserved.'
+          )
+          PYCODE
+
+      - name: Verify sources and build APK
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -s upstream/app/src/main/java/dev/kifranei/spotifyplus/lyrics/LyricsDiskCache.kt
+          test -s upstream/app/src/main/java/dev/kifranei/spotifyplus/lyrics/MultiSourceLyricsClient.kt
+          test -s upstream/app/src/main/java/dev/kifranei/spotifyplus/ui/LyricsSourceActivity.kt
+          test -s upstream/app/src/main/java/dev/kifranei/spotifyplus/hook/MediaTrackIdResolver.kt
+
+          cd upstream
+
+          ./gradlew :app:assembleDebug \
+            --no-daemon \
+            --stacktrace \
+            --console=plain \
+            2>&1 | tee "$RUNNER_TEMP/spotifyplus107-build.log"
+
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          sha256sum app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpotifyPlus-107-Failure-Log
+          path: ${{ runner.temp }}/spotifyplus107-build.log
+          if-no-files-found: ignore
+
+      - name: Upload 1.0.7 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpotifyPlus-MultiSource-1.0.7-Spotify92-APK
+          path: upstream/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
