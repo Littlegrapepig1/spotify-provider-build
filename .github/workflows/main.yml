@@ -1,530 +1,503 @@
-name: Build Spotify Native Sort v0.5
+name: Build SpotifyPlus MultiSource 1.0.7 Spotify 9.2.4 Compat APK
+
 on:
   workflow_dispatch:
   push:
     paths:
-      - '.github/workflows/main.yml'
+      - '.github/workflows/**'
+
 permissions:
-  contents: write
+  contents: read
+
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
+    timeout-minutes: 90
+
     steps:
       - uses: actions/checkout@v4
-      - name: Restore Android project
-        shell: bash
-        run: |
-          cat > /tmp/source.b64 <<'END_SOURCE'
-          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
-          JO/FiuXrn/v0qpOnrfnwyb+cuqNq9YlHDZ5Totx54YKvry/84FvdP/3+3dIDtxVPnzxnnNzZvea6z//w8Wjp6Zf4B2b+9sqP1t87
-          Ycun5yz7+9wr5caav3WHRz/v+kvz+tD4vyx+fM2zH79w2y27/qdkYii8Y/Hi734+77OLNp6769h3335TuXTlTO+c41b9I9i6vuqV
-          H6g3NX7/z8Ipo87cvHj/62u6cmY9dcY1l9TcOO2uy8+MPdnaUf5m1ehtJ8Ls+37+zeQnaMR+8bVMmFeWfkwvrGqr59UuCY/quamf
-          TZzMxcjQLr0g2HgkGtq8s3Nzc67ZvPrC1U3zF7z9ihCtWTJ23ZRv+u/39b0z6vqfbvtVcOEPnv/5M0+d/ZvlgRNGf/Nkb3Tgxcfu
-          KJV6/vTBJ//9vfNPnTF6es2EmsGbKmeuG9966nlV3/o0uaB0w2XeG4M5dzMV3675xZmzj33+yPq7Nrz6bvWW50rLPk5+cstD+59/
-          +7/6r3//6j81Pvj9rS++Np1/Y+GZS0+ZcvmmoOL/n5MeWPq7V547R3H/5tlrn/h87qq3PvkkHrr4tse+5X7vs95fvVZx3GlvVVYP
-          fiC8fGZywQv7vT+ZFfnpmIe3vTF641K2r+3D+w+8Wuv71q3fDw5ePu6k5+4KnXzbzM1bz/vw8unr/nQX//H5yodPnPXdy4I3Hvny
-          11cVXv2t/ade+pMzPjil8++e7x4/7y3+tCW3fTZr4aoNW5/zr7nxhJ8mbn1s+n2LTr+Bn3Dv8z9Lfn3cEvbHJ5Tcv/Sd0TBJnZ1z
-          xgbRBJ1yZKZJ8o90kmaIYO6nc9P0/LSnm04K3vJQ7ZopZ37Yve3oA0ctOX7O4jXXuN849i9P3PFO0eg1Jftmia+9/1qbPOaa4yc9
-          sfyU3J4ke+nqwsI/v8ANzPvHvO9/bfwzPUd9e9wJW866Yudxn134wylTb2ja/ObQuSe03ZkY+8HH3Mdzx3xy/7KXd9359TlXvHD+
-          zk+uvPmYY6/bx932yDmjE0Xf3X3W7R+P+rzaW70659PTLgudOuHnF/1h/AW135+8WX30z9eJm9bGn9x2guo9bht39/7kvG/XKnl3
-          31r++c1z85es/tmlty/5zbtDj3znZ69v+Iv0j9ffKljpmjs4rbawJrTyZy88OXaM+8fHte0sOrY8Gr0jOPa9gq35ge/Xb43/YMV9
-          s6fc8Op/f/pe5b4Tx0s/WPvtqWtO3vzU4IUf/M8vOn97xuhvv3VhwQ9XX84ddcm6Nhj+k2ZdeTSDhv/5jGtk3AiHn4z7HRc83/DU
-          +acFV62ceXIyefypo8d6q0/dw4WLxIVTTp13ruvKznvVG13qc003vifz7z914sf3LHmYv3po8vvnKh/dtkZ5uf+Fnw6+XT4/56Hm
-          mid2cvfedF3ouZ5nasbPPnli2S/FqSVV1yR+d+z350729Tz/zTOPv+7m3O9te+emc45szHtPeba/+MY7lbb+3bdyl/QOTgue/MKW
-          P547puWTo3qLf/dI8y8XvJ2seXdF/kb+mZvfPffa+O5L1kx9qGhB6eQb3r3gkcqaO5ateeDsv447/c3nTsp53fPb2LY7c3nl7m9N
-          C15SnLjvh496Xv777h23TTv2plFj+k8+unnWnnbfjVsfm7L575sa3316+cKl9U99funFcyrL391c/LWBE6KfPzR0+rqhD95k/9i9
-          Jnh/4+/3XXPZ6R/Pj24b3/XEM6e8tvb0C26Yd86itl3nrvzV7Utmvdnxj4adj5137o03CL2nvTn4nW3yfR96dz752Ki/HgmTFH4o
-          4KlHE9SbcY14MkwS/jNZhk0NMkfbmp9veBvmaOKlr308bsdkoXRnzebW+5rnLHNVHn3FxiOOb7lu6G75/R8V/ualdfff8seTP1vd
-          M+NHx1fMXz75nfvPOfkXW6adt3d1+Ow7+l7+wz5F+dvfzniifO8WLue8Y5Nl4zafMvDytRf85tmrF79zz7uPDG267orp42576LiN
-          Uz555slTn+pwX3pP3zmlTetfDag72IRr8p+Lrp19ztM1J/38e98LvJDYeMr1T+8IcsuuveyFF353/oc33DG+4qQD519/3P/b+uq+
-          h//7mcqb55563V1n/Mi142+lr780uPfVvt//tviTp7hx4V+O/tHU1X/iN1yjdr35v31Pbn7w19/37viva7c8VDHub3+7bM09+bXF
-          r41+/7nnarZcPvHEaybd9trCAv+OJ4Mn9Vxzy0WffDb3rsWtP645+Yq+Wf1X3jZt2ynH3nDdT/pe/MMTQ9L/itPuXzbq+aXv192e
-          +87Tv6x6ffTfXps2euwvP3v2t8d9euK0426pn7nzxbL/9+kPvvGTJ7/OfTjmmHl5n5yyd8HTpW9W8Dfue3pewye/nD6lfWv0H0d+
-          tn90w8udxec87+1dXDb64gNlynnPev76h+u3X/Od58MrE8rqf2x6bPGCK2/s3HrpU38c/8LF91b5F7742M0XbX1/Qnjpr4r37jzw
-          ERZqkoFFCx9G2HDPUYe6ZImkwEfjvKwQdHiw+dfTjqw8PfjBljUd//v646/cMbrjlVPUTaePue7JmaNnHj37me2FB25/8bnd03a8
-          8vYbM14JnfhKVei97ZX3fqu6aKfS8dKdEwbDA329/Vd9fee18045+fSxd3ueOanzOXXt+nDie796YNmvl3X99Rt/WJwbfPznl59W
-          +lLdC77Tdu/cJV+/8pxHZp71sNi3pWB34qzJs9W+yX/+zt3FPzmm6q0/bRh/xju7J981Xly1+pkVub3bPvyf2lbPW2ff9M22vgdm
-          nBWevGLbd1m1N3xzwS0znu6u/enZXQ/8+rNrZ2xsPe/haNObd+5PbNx+4oL3Zq6tPG1T+6Yw+7uf9d2z8CPxRz0T/nhCc86mB+rP
-          /9V//2jtunt/sGhayRvnl/7ksdETp/z+9ftixwx840dHeRaccN9J/ac+/401jy/03f/XqluWnL3u92d878mSut8+c/npl1cWvLZ2
-          3a/LxpyzZMVZT57VVZl8/bsn/mxUbcdNOSc/d+roC6vf/Oy6l564dPOdP/3ea88tObC04NNX5/SvfOzS3Rc/4eJu/pzljum+XIJ5
-          vCV61pI4msfJR2USTsekn8cwF422w65uBolxykiKIxpukBnPNfw2SDormuqnP33+Sf1v71paf9+2bWfnnnjNsZ/+5rK9HtfRR495
-          Y3Jo78/OvWjaFY9e0vP2++/98dy5Hx/7l3ueqR2366pPAtK78/b+uveuto/OPuKl+0evO/LlqQ8uOOO3R97hz68Z2DD1j+xZ90XG
-          Nj3+glqy55SPlzWeNS866tJN0y4+teDcA2/c7l1R0PJB67hTf/7J6ps7c89+etNzTWWXTz4nsWvlic+9Vr1uwuzXKupvPb/04mD5
-          2l/VLWcXn9x9SvIdecNt+/dfOmbD1ic+f2vy7is+nllc5Fn+8D11930+75S8vsYrX1pxeddAyQWlF1Ve9fikuTM3H7dLfHDmQ2+0
-          vPTTZfP/Prgx+pv3Lrly1F3Br08cVXRS/Nlf/v3y49ect/ip/mWXvHDCtBPeaHiPuez5njXhfd6rvL/gtl5+5uxn599XcdWboQ/O
-          hGltXjExci6a1jcyctTig5+X1DQc5T+p/8BPt8+edckffvfitVf5Rp0Vuu6Y9U271i0svS06ubb+1Nq39DnY8OO+Zqnj8nf3lr4w
-          deDDv31w6hMT/pSjvvLiq3mvTh3ru/312zecM+mWh68Qf7vx/B5u3+zLctTly86Wo8fVxCLfuCL/Zx+evnXljoIx38nvlhsu+Gzt
-          /vCnRcdt2FTX1XH0VTNe+cbTiz4d6Hiwaey7t8hbT5vDfatbiZ35wD/2/G7Xr0LrvtsntSfd590if+OY7Z9P+MfHUydurDn+88G2
-          4zqf+9/TXjw1Ou8bfzqq49j8Y/+a+9FJUuzRy+96sP362J6fnFK+5Jj79rzTdd2TX4fRHPWnM976EI1VGI/m147MOSK9qml+LIrn
-          14487YjUVBgVw9NMxfLSKKKZKj/KBGGTpk6mLzDKVOA5k3qZvtRJplK/d1Q305cebSr93a9lUD/NY2VUowpNQC742iGpo9YKjCpA
-          mamCjUf+M7qZtR6jrOs31TPt6ENQL6zgjVLaOBP4nx1zMOKzFa6R33tMcMVjD0Lis4I1sh9zc+cddzCiQyacG2OCW338iFiZuZlG
-          cjrFBO7a478o1mat00h0ik11nvnNQyTbTdOP+ToAOBH9txdhm3BCdv/nC93/yZ7//pft/5Q6n/8pLM1u/3xV9n8UOVwQ4wSxgJ7R
-          redEoYNXVHZuLHo4zv8UF5ZYzv+U+kqy578PyzNxEppk7ThM0OVnfS6GF8NSRBA7g66E2pE/3jWpImdijOIEg7KLShlln0FXl6rG
-          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
-          END_SOURCE
-          base64 -d /tmp/source.b64 | tar xz
-      - name: Patch v0.5 window-aware native menu hook
-        shell: bash
-        run: |
-          set -euo pipefail
-          cat > /tmp/spotify-v05.b64 <<'SPOTIFY_V05_SOURCE'
-          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
-          SPOTIFY_V05_SOURCE
-          base64 -d /tmp/spotify-v05.b64 | tar -xJf -
-          rm -f app/src/main/java/io/github/playcountsort/MainActivity.java
-          test -s app/src/main/java/io/github/playcountsort/NativeSheetInjector.java
-     
-      - name: Fix LSPosed early Handler crash (v0.5.1)
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('app/src/main/java/io/github/playcountsort/SpotifyHook.java')
-          s=p.read_text()
-          changes=[
-            ('private static final Handler MAIN=new Handler(Looper.getMainLooper());',
-             '''private static void postMainDelayed(Runnable r,long ms){
-              Looper looper=Looper.getMainLooper();
-              if(looper!=null)new Handler(looper).postDelayed(r,ms);
-              else XposedBridge.log("PlayCountSort: main Looper unavailable");
-            }'''),
-            ('MAIN.postDelayed(', 'postMainDelayed('),
-            ('private final Handler handler=new Handler(Looper.getMainLooper());',
-             '''private Handler handler;
-              private Handler getHandler(){
-                if(handler==null){
-                  Looper l=Looper.getMainLooper();
-                  if(l==null)return null;
-                  handler=new Handler(l);
-                }
-                return handler;
-              }'''),
-            ('handler.removeCallbacks(ticker);',
-             'Handler h=getHandler(); if(h==null)return; h.removeCallbacks(ticker);'),
-            ('handler.postDelayed(ticker,', 'h.postDelayed(ticker,')
-          ]
-          for old,new in changes:
-              if old not in s: raise RuntimeError('Patch did not match: '+old)
-              s=s.replace(old,new)
-          p.write_text(s)
-          b=Path('app/build.gradle')
-          t=b.read_text().replace('versionCode 5','versionCode 6').replace('0.5.0-window-aware','0.5.1-looper-fix')
-          if t==b.read_text(): raise RuntimeError('Missing version fields')
-          b.write_text(t)
-          print('LSPosed Handler crash fixed')
-          PY
-          
-      - name: Fix Spotify Sort click detection (v0.5.2)
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('app/src/main/java/io/github/playcountsort/SpotifyHook.java')
-          s=p.read_text()
-          key='            Class<?> click=XposedHelpers.findClass("p.x091",pkg.classLoader);'
-          assert s.count(key)==1, 'Expected Spotify v0.5.x source not found'
-          hook='''            // Observe real Android clicks without blocking Spotify.
-            XposedBridge.hookAllMethods(View.class,"performClick",new XC_MethodHook(){
-                @Override protected void beforeHookedMethod(MethodHookParam p){
-                    if(!(p.thisObject instanceof View))return;
-                    View pressed=(View)p.thisObject;
-                    View candidate=pressed;
-                    boolean sort=false;
-                    for(int depth=0;candidate!=null&&depth<6;depth++){
-                        if(BUTTON.equals(candidate.getClass().getName())){sort=true;break;}
-                        if(candidate instanceof android.widget.TextView){
-                            CharSequence label=((android.widget.TextView)candidate).getText();
-                            if(label!=null&&"sort".equalsIgnoreCase(label.toString().trim())){
-                                sort=true;break;
-                            }
-                        }
-                        CharSequence cd=candidate.getContentDescription();
-                        if(cd!=null&&"sort".equalsIgnoreCase(cd.toString().trim())){
-                            sort=true;break;
-                        }
-                        android.view.ViewParent parent=candidate.getParent();
-                        candidate=parent instanceof View?(View)parent:null;
-                    }
-                    if(!sort||!pressed.isAttachedToWindow())return;
-                    anchor=new WeakReference<>(pressed);
-                    armedAt=SystemClock.uptimeMillis();
-                    PREVIOUS_ROOTS.clear();
-                    for(View root:windowRoots())PREVIOUS_ROOTS.put(root,Boolean.TRUE);
-                    XposedBridge.log("PlayCountSort v052 actual Sort click detected roots="+PREVIOUS_ROOTS.size());
-                    for(long delay:new long[]{80,220,500,900,1400})
-                        postMainDelayed(()->scanWindows(pressed),delay);
-                }
-            });
-            // Observe the original Spotify Sort by sheet header.
-            XposedBridge.hookAllMethods(android.widget.TextView.class,"setText",new XC_MethodHook(){
-                @Override protected void afterHookedMethod(MethodHookParam p){
-                    if(p.args.length==0||!(p.args[0] instanceof CharSequence))return;
-                    if(!"sort by".equalsIgnoreCase(p.args[0].toString().trim()))return;
-                    final View header=(View)p.thisObject;
-                    XposedBridge.log("PlayCountSort v052 observed native Sort by header");
-                    for(long delay:new long[]{100,300,700}){
-                        postMainDelayed(()->{
-                            if(!header.isAttachedToWindow())return;
-                            try{
-                                boolean added=NativeSheetInjector.attachToRoot(header.getRootView(),false,
-                                    (period,asc)->sort(header,period,asc));
-                                if(added)XposedBridge.log("PlayCountSort v052 native sort header attached");
-                            }catch(Throwable error){XposedBridge.log("PlayCountSort v052 header: "+error);}
-                        },delay);
-                    }
-                }
-            });
-            XposedBridge.log("PlayCountSort v052 platform click hook active");
-          '''
-          s=s.replace(key,hook+key)
-          p.write_text(s)
-          b=Path('app/build.gradle')
-          x=b.read_text()
-          x=x.replace('versionCode 6','versionCode 7').replace('0.5.1-looper-fix','0.5.2-click-fix')
-          assert x!=b.read_text(),'Wrong module build version'
-          b.write_text(x)
-          PY
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
-      - uses: android-actions/setup-android@v4
-      - run: sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
-      - run: bash tests/run_sort_test.sh
-      - run: gradle --no-daemon --console=plain :app:assembleDebug
-      - uses: actions/upload-artifact@v4
-        with:
-          name: SpotifyNativeSort-v0.5-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-      - name: Publish release
-        env:
-          GH_TOKEN: ${{ github.token }}
+          java-version: '21'
+
+      - name: Check Android SDK
+        shell: bash
         run: |
-          gh release view native-sort-v05 >/dev/null 2>&1 && gh release upload native-sort-v05 app/build/outputs/apk/debug/app-debug.apk --clobber || gh release create native-sort-v05 app/build/outputs/apk/debug/app-debug.apk --target "$GITHUB_SHA" --title 'Native Sort v0.5 (window-aware, experimental)' --prerelease
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          if [ ! -f "$SDK_ROOT/platforms/android-37.0/android.jar" ]; then
+            SDKM="$(command -v sdkmanager || true)"
+            if [ -z "$SDKM" ]; then
+              SDKM="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+            fi
+            yes | "$SDKM" --install 'platforms;android-37.0' || true
+          fi
+          test -f "$SDK_ROOT/platforms/android-37.0/android.jar"
+
+      - name: Clone SpotifyPlus base source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch v1.0.0 https://github.com/Kifranei/SpotifyPlus.git upstream
+          chmod +x upstream/gradlew
+
+      - name: Restore proven 1.0.6 MultiSource base patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYCODE'
+          from pathlib import Path
+          import base64
+          import re
+
+          old = Path('.github/workflows/main1029night.yml').read_text(
+              encoding='utf-8'
+          )
+          match = re.search(
+              r"<<'LYRIC_PATCH_B64'\s*\n(.*?)\n\s*LYRIC_PATCH_B64",
+              old,
+              re.S
+          )
+          if not match:
+              raise SystemExit(
+                  'Cannot find existing 1.0.6 patch in main1029night.yml'
+              )
+
+          data = ''.join(
+              line.strip()
+              for line in match.group(1).splitlines()
+          )
+          Path('base106.tgz').write_bytes(
+              base64.b64decode(data, validate=True)
+          )
+          PYCODE
+
+          tar -tzf base106.tgz >/dev/null
+          tar -xzf base106.tgz
+          python3 scripts/apply.py
+
+      - name: Patch Spotify 9.2.4 playback compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYCODE'
+          from pathlib import Path
+
+          hook = Path(
+              'upstream/app/src/main/java/dev/kifranei/spotifyplus/hook'
+          )
+
+          hook.joinpath('MediaTrackIdResolver.kt').write_text(
+              r'''package dev.kifranei.spotifyplus.hook
+
+          /** Strict Spotify identity decoding across Android metadata variants. */
+          internal object MediaTrackIdResolver {
+              private val id = Regex("^[0-9A-Za-z]{22}$")
+              private val uri = Regex("^spotify:track:([0-9A-Za-z]{22})(?:[?].*)?$", RegexOption.IGNORE_CASE)
+              private val url = Regex("^https?://open\\.spotify\\.com/(?:intl-[^/]+/)?track/([0-9A-Za-z]{22})(?:[/?#].*)?$", RegexOption.IGNORE_CASE)
+
+              fun parse(value: String?): String? {
+                  if (value.isNullOrBlank()) return null
+                  val v = value.trim()
+                  if (id.matches(v)) return v
+                  uri.matchEntire(v)?.let { return it.groupValues[1] }
+                  url.matchEntire(v)?.let { return it.groupValues[1] }
+                  return null
+              }
+
+              fun first(vararg candidates: String?): String? =
+                  candidates.firstNotNullOfOrNull(::parse)
+
+              fun normalized(value: String?): String = value.orEmpty()
+                  .trim()
+                  .lowercase(java.util.Locale.ROOT)
+                  .replace(Regex("\\s+"), " ")
+
+              fun metadataAgrees(old: String?, new: String?): Boolean =
+                  old != null &&
+                  new != null &&
+                  normalized(old) == normalized(new)
+          }''',
+              encoding='utf-8'
+          )
+
+          hook.joinpath('PlaybackHook.kt').write_text(
+              r'''package dev.kifranei.spotifyplus.hook
+
+          import android.content.BroadcastReceiver
+          import android.content.Context
+          import android.content.Intent
+          import android.content.IntentFilter
+          import android.media.MediaMetadata
+          import android.media.session.PlaybackState
+          import android.os.Build
+          import dev.kifranei.spotifyplus.util.SpotifyPlusLog
+          import java.util.concurrent.CopyOnWriteArrayList
+
+          /** Spotify 9.2 compatibility: multiple MediaSession IDs + verified ContextTrack + optional broadcast. */
+          object PlaybackHook {
+              data class Track(
+                  val id: String,
+                  val title: String?,
+                  val artist: String?,
+                  val durationMs: Long
+              )
+
+              interface Listener {
+                  fun onTrack(t: Track) {}
+                  fun onPlaybackState(s: PlaybackState) {}
+                  fun onOtherMetadata(title: String?, artist: String?) {}
+              }
+
+              private val listeners =
+                  CopyOnWriteArrayList<Listener>()
+
+              @Volatile
+              private var installed = false
+
+              @Volatile
+              private var broadcastRegistered = false
+
+              @Volatile
+              var lastTrack: Track? = null
+                  private set
+
+              fun add(l: Listener) {
+                  if (!listeners.contains(l)) listeners += l
+              }
+
+              private fun deliver(t: Track, via: String) {
+                  if (t.id == lastTrack?.id) return
+
+                  lastTrack = t
+                  TrackStore.currentUri = "spotify:track:${t.id}"
+
+                  SpotifyPlusLog.i(
+                      "playback-track id=${t.id} via=$via title=${t.title.orEmpty().take(72)}"
+                  )
+
+                  for (l in listeners) {
+                      runCatching { l.onTrack(t) }
+                          .onFailure {
+                              SpotifyPlusLog.w("playback listener failed", it)
+                          }
+                  }
+              }
+
+              private fun onMetadata(md: MediaMetadata) {
+                  val description =
+                      runCatching { md.description }.getOrNull()
+
+                  val title =
+                      md.getString(MediaMetadata.METADATA_KEY_TITLE)
+                          ?: md.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE)
+                          ?: description?.title?.toString()
+
+                  val artist =
+                      md.getString(MediaMetadata.METADATA_KEY_ARTIST)
+                          ?: md.getString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE)
+                          ?: description?.subtitle?.toString()
+
+                  val duration =
+                      md.getLong(MediaMetadata.METADATA_KEY_DURATION)
+
+                  val fromMetadata = MediaTrackIdResolver.first(
+                      md.getString(MediaMetadata.METADATA_KEY_MEDIA_ID),
+                      md.getString(MediaMetadata.METADATA_KEY_MEDIA_URI),
+                      description?.mediaId,
+                      description?.mediaUri?.toString()
+                  )
+
+                  val fromTrack =
+                      if (fromMetadata == null)
+                          TrackStore.findByMetadata(title, artist)
+                      else
+                          null
+
+                  val id = fromMetadata ?: fromTrack
+
+                  if (id != null) {
+                      deliver(
+                          Track(id, title, artist, duration),
+                          if (fromMetadata != null)
+                              "MediaSession"
+                          else
+                              "ContextTrack-match"
+                      )
+                      return
+                  }
+
+                  val previous = lastTrack
+
+                  if (
+                      previous != null &&
+                      MediaTrackIdResolver.metadataAgrees(
+                          previous.title, title
+                      ) &&
+                      MediaTrackIdResolver.metadataAgrees(
+                          previous.artist, artist
+                      )
+                  ) {
+                      SpotifyPlusLog.i(
+                          "playback metadata missing ID but matches last song; keep lyrics"
+                      )
+                      return
+                  }
+
+                  SpotifyPlusLog.w(
+                      "playback metadata missing Spotify ID: title=${title.orEmpty().take(64)} artist=${artist.orEmpty().take(64)}"
+                  )
+
+                  for (l in listeners) {
+                      runCatching {
+                          l.onOtherMetadata(title, artist)
+                      }.onFailure {
+                          SpotifyPlusLog.w("metadata listener failed", it)
+                      }
+                  }
+              }
+
+              @Synchronized
+              fun install() {
+                  if (installed) return
+                  installed = true
+
+                  val ms =
+                      android.media.session.MediaSession::class.java
+
+                  val metaHooks = ModernHookRuntime.hookAllMethods(
+                      ms,
+                      "setMetadata",
+                      object : ModernHookRuntime.MethodHook() {
+                          override fun afterHookedMethod(
+                              p: ModernHookRuntime.MethodHookParam
+                          ) {
+                              val md =
+                                  p.args.getOrNull(0) as? MediaMetadata
+                                      ?: return
+
+                              runCatching {
+                                  onMetadata(md)
+                              }.onFailure {
+                                  SpotifyPlusLog.w(
+                                      "metadata handler failed", it
+                                  )
+                              }
+                          }
+                      }
+                  )
+
+                  val stateHooks = ModernHookRuntime.hookAllMethods(
+                      ms,
+                      "setPlaybackState",
+                      object : ModernHookRuntime.MethodHook() {
+                          override fun afterHookedMethod(
+                              p: ModernHookRuntime.MethodHookParam
+                          ) {
+                              val state =
+                                  p.args.getOrNull(0) as? PlaybackState
+                                      ?: return
+
+                              for (l in listeners) {
+                                  runCatching {
+                                      l.onPlaybackState(state)
+                                  }
+                              }
+                          }
+                      }
+                  )
+
+                  SpotifyPlusLog.i(
+                      "PlaybackHook ready: MediaSession metadata=$metaHooks state=$stateHooks"
+                  )
+
+                  SpotifyHost.whenReady(::registerBroadcastFallback)
+              }
+
+              private fun registerBroadcastFallback(
+                  app: android.app.Application
+              ) {
+                  if (broadcastRegistered) return
+
+                  val receiver = object : BroadcastReceiver() {
+                      override fun onReceive(
+                          context: Context,
+                          intent: Intent
+                      ) {
+                          if (
+                              intent.action !=
+                              "com.spotify.music.metadatachanged"
+                          ) return
+
+                          val sent =
+                              intent.getLongExtra("timeSent", 0L)
+
+                          if (
+                              sent > 0L &&
+                              kotlin.math.abs(
+                                  System.currentTimeMillis() - sent
+                              ) > 60_000L
+                          ) return
+
+                          val id = MediaTrackIdResolver.parse(
+                              intent.getStringExtra("id")
+                          ) ?: return
+
+                          val title =
+                              intent.getStringExtra("track")
+
+                          val artist =
+                              intent.getStringExtra("artist")
+
+                          val sec =
+                              intent.getIntExtra("length", 0)
+                                  .coerceAtLeast(0)
+
+                          deliver(
+                              Track(
+                                  id,
+                                  title,
+                                  artist,
+                                  sec.toLong() * 1000L
+                              ),
+                              "Spotify-broadcast"
+                          )
+                      }
+                  }
+
+                  runCatching {
+                      val filter = IntentFilter(
+                          "com.spotify.music.metadatachanged"
+                      )
+
+                      if (Build.VERSION.SDK_INT >= 33) {
+                          app.registerReceiver(
+                              receiver,
+                              filter,
+                              Context.RECEIVER_EXPORTED
+                          )
+                      } else {
+                          app.registerReceiver(receiver, filter)
+                      }
+
+                      broadcastRegistered = true
+
+                      SpotifyPlusLog.i(
+                          "Spotify media broadcast fallback installed (may be disabled by Spotify settings)"
+                      )
+                  }.onFailure {
+                      SpotifyPlusLog.w(
+                          "broadcast fallback registration failed", it
+                      )
+                  }
+              }
+          }''',
+              encoding='utf-8'
+          )
+
+          def replace_one(path, old, new):
+              s = path.read_text(encoding='utf-8')
+              if s.count(old) != 1:
+                  raise SystemExit(
+                      f'Unexpected source in {path}: {old!r} occurs {s.count(old)} times'
+                  )
+              path.write_text(
+                  s.replace(old, new),
+                  encoding='utf-8'
+              )
+
+          store = hook / 'TrackStore.kt'
+
+          replace_one(
+              store,
+              'import dev.kifranei.spotifyplus.util.SpotifyPlusLog',
+              'import dev.kifranei.spotifyplus.util.SpotifyPlusLog\nimport dev.kifranei.spotifyplus.util.SpotifyUris'
+          )
+
+          replace_one(
+              store,
+              '    /** Now-playing track (from MediaSession), else the last track we saw a Canvas for. */',
+              '''    /** Exact title AND artist matching only. Ambiguous recordings are rejected. */
+              fun findByMetadata(title: String?, artist: String?): String? {
+                  if (title.isNullOrBlank() || artist.isNullOrBlank()) return null
+                  val wantedTitle = MediaTrackIdResolver.normalized(title)
+                  val wantedArtist = MediaTrackIdResolver.normalized(artist)
+                  return synchronized(lock) {
+                      map.values.asSequence().filter {
+                          MediaTrackIdResolver.normalized(it.title) == wantedTitle &&
+                              MediaTrackIdResolver.normalized(it.artistName) == wantedArtist
+                      }.mapNotNull { SpotifyUris.trackId(it.uri) }.distinct().toList().singleOrNull()
+                  }
+              }
+
+              /** Now-playing track (from MediaSession), else the last track we saw a Canvas for. */'''
+          )
+
+          entry = hook / 'HookEntry.kt'
+
+          replace_one(
+              entry,
+              '        step("PlaybackHook") { PlaybackHook.install() }',
+              '        if (prefs.lyricsBridge) step("TrackStore for lyrics") { TrackStore.install(cl) }\n'
+              '        step("PlaybackHook") { PlaybackHook.install() }'
+          )
+
+          gradle = Path('upstream/app/build.gradle.kts')
+
+          replace_one(
+              gradle,
+              'versionCode = 16',
+              'versionCode = 17'
+          )
+
+          replace_one(
+              gradle,
+              'versionName = "1.0.6-persistent-cache-beta"',
+              'versionName = "1.0.7-spotify-9.2-compat-beta"'
+          )
+
+          print(
+              'Spotify 9.2.4 compatibility applied; cache and source picker preserved.'
+          )
+          PYCODE
+
+      - name: Verify sources and build APK
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -s upstream/app/src/main/java/dev/kifranei/spotifyplus/lyrics/LyricsDiskCache.kt
+          test -s upstream/app/src/main/java/dev/kifranei/spotifyplus/lyrics/MultiSourceLyricsClient.kt
+          test -s upstream/app/src/main/java/dev/kifranei/spotifyplus/ui/LyricsSourceActivity.kt
+          test -s upstream/app/src/main/java/dev/kifranei/spotifyplus/hook/MediaTrackIdResolver.kt
+
+          cd upstream
+
+          ./gradlew :app:assembleDebug \
+            --no-daemon \
+            --stacktrace \
+            --console=plain \
+            2>&1 | tee "$RUNNER_TEMP/spotifyplus107-build.log"
+
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          sha256sum app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpotifyPlus-107-Failure-Log
+          path: ${{ runner.temp }}/spotifyplus107-build.log
+          if-no-files-found: ignore
+
+      - name: Upload 1.0.7 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpotifyPlus-MultiSource-1.0.7-Spotify92-APK
+          path: upstream/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
